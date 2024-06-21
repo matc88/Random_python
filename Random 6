@@ -1,0 +1,47 @@
+import pandas as pd
+
+# Load your Excel file
+file_path = 'path_to_your_excel_file.xlsx'
+df = pd.read_excel(file_path)
+
+# Add a new column 'Edits' initialized to 'N'
+df['Edits'] = 'N'
+
+# Identifying duplicates based on Column 1, Column 2, and Column 3
+# Only considering rows where Edits is 'N'
+duplicates2 = df[df['Edits'] == 'N'].duplicated(subset=['Column 1', 'Column 2', 'Column 3'], keep=False)
+
+# Creating a DataFrame with these duplicates
+duplicates2 = df[df['Edits'] == 'N'][duplicates2]
+
+# Iterate through the duplicates to perform the replacement
+for value in duplicates2[['Column 1', 'Column 2', 'Column 3']].drop_duplicates().values:
+    # Find the rows with the current duplicate value
+    duplicate_rows = df[(df['Column 1'] == value[0]) & (df['Column 2'] == value[1]) & (df['Column 3'] == value[2]) & (df['Edits'] == 'N')]
+    
+    # Ensure we have exactly two rows to compare
+    if len(duplicate_rows) == 2:
+        row_da = duplicate_rows[duplicate_rows['Column 1'] == 'DA']
+        row_ew = duplicate_rows[duplicate_rows['Column 1'] == 'EW']
+        
+        # Ensure we have one 'DA' row and one 'EW' row
+        if len(row_da) == 1 and len(row_ew) == 1:
+            # Get the index of the rows
+            index_da = row_da.index[0]
+            index_ew = row_ew.index[0]
+            
+            # Replace the values in Column 3, 4, 5 of the 'EW' row with those from the 'DA' row if Column 4 is 'AAS9425'
+            if df.loc[index_ew, 'Column 4'] == 'AAS9425':
+                df.loc[index_ew, ['Column 3', 'Column 4', 'Column 5']] = df.loc[index_da, ['Column 3', 'Column 4', 'Column 5']]
+                # Update the Edits column
+                df.loc[index_da, 'Edits'] = 'Y - Remove'
+                df.loc[index_ew, 'Edits'] = 'Y - Changed'
+
+# Display the updated dataframe
+print(df)
+
+# Optionally, you can save the updated dataframe to a new Excel file
+df.to_excel('updated_data.xlsx', index=False)
+
+# Display the duplicates2 dataframe
+print(duplicates2)
