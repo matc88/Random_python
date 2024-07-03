@@ -1,0 +1,47 @@
+CountryCategory = 
+IF(
+    'Sheet1'[RankByContinent] <= 2,
+    "Top 2",
+    "Other countries"
+)
+#########################################
+
+CountryCategoryWithCount = 
+VAR CurrentContinent = 'Sheet1'[Continent]
+VAR RankWithinContinent = 'Sheet1'[RankByContinent]
+VAR OtherCountriesCount = 
+    CALCULATE(
+        COUNTROWS('Sheet1'),
+        FILTER(
+            'Sheet1',
+            'Sheet1'[Continent] = CurrentContinent &&
+            'Sheet1'[RankByContinent] > 2
+        )
+    )
+RETURN
+IF(
+    RankWithinContinent <= 2,
+    "Top 2 Countries on Continent",
+    FORMAT(OtherCountriesCount, "0") & " other countries"
+)
+#########################################
+RankByContinent = 
+RANKX(
+    FILTER(
+        'Sheet1',
+        'Sheet1'[Continent] = EARLIER('Sheet1'[Continent])
+    ),
+    'Sheet1'[TotalAmountByCountry],
+    ,
+    DESC,
+    DENSE
+)
+
+#########################################
+TotalAmountByCountry = 
+CALCULATE(
+    SUM('Sheet1'[Amount]),
+    ALLEXCEPT('Sheet1', 'Sheet1'[Continent], 'Sheet1'[Name of Country])
+)
+#########################################
+
