@@ -1,0 +1,83 @@
+import pandas as pd
+from docx import Document
+from docx.shared import Pt
+
+# Dataset
+data = {
+    'date': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05',
+             '2023-01-06', '2023-01-07', '2023-01-08', '2023-01-09', '2023-01-10',
+             '2023-01-11', '2023-01-12', '2023-01-13', '2023-01-14', '2023-01-15',
+             '2023-01-16', '2023-01-17', '2023-01-18', '2023-01-19', '2023-01-20'],
+    'amount': [593.932154, 743.670430, 642.487038, 590.394865, 481.289319,
+               681.304702, 493.828490, 902.595701, 967.296484, 445.097367,
+               812.552534, 576.005428, 611.240105, 933.036974, 163.932452,
+               178.416370, 118.196558, 849.357861, 800.341076, 883.010933],
+    'Animals 1': ['Animals_4', 'Animals_5', 'Animals_2', 'Animals_3', 'Animals_5',
+                 'Animals_5', 'Animals_5', 'Animals_2', 'Animals_3', 'Animals_3',
+                 'Animals_3', 'Animals_2', 'Animals_4', 'Animals_6', 'Animals_5',
+                 'Animals_5', 'Animals_4', 'Animals_6', 'Animals_4', 'Animals_2'],
+    'Animals 2': ['Animals_2', 'Animals_6', 'Animals_2', 'Animals_6', 'Animals_3',
+                 'Animals_6', 'Animals_3', 'Animals_4', 'Animals_4', 'Animals_2',
+                 'Animals_3', 'Animals_3', 'Animals_3', 'Animals_3', 'Animals_5',
+                 'Animals_5', 'Animals_4', 'Animals_5', 'Animals_2', 'Animals_5']
+}
+
+# Create DataFrame
+df = pd.DataFrame(data)
+
+# Convert date column to datetime
+df['date'] = pd.to_datetime(df['date'])
+
+# Filter the DataFrame for a specific Animals
+Animals_name = "Animals_5"
+filtered_df = df[(df['Animals 1'] == Animals_name) | (df['Animals 2'] == Animals_name)]
+
+# Calculate the necessary values
+min_date = filtered_df['date'].min().strftime('%Y-%m-%d')
+max_date = filtered_df['date'].max().strftime('%Y-%m-%d')
+number_of_rows = len(filtered_df)
+sum_of_amount = filtered_df['amount'].sum()
+unique_Animalss = filtered_df[['Animals 1', 'Animals 2']].values.flatten()
+unique_Animalss = pd.Series(unique_Animalss).unique()
+Animalss_list = ', '.join(unique_Animalss)
+
+# Generate the initial summary text
+summary_text = (f"Between {min_date} and {max_date} there were {number_of_rows} entries "
+                f"for a total of {sum_of_amount:.2f} between {Animalss_list}.")
+
+# Create a new Document
+doc = Document()
+
+# Add the summary text to the document
+para = doc.add_paragraph(summary_text)
+run = para.add_run()
+run.font.size = Pt(12)
+
+# Define the questions
+questions = [
+    "Question 1 blah blah blah {} and {}",
+    "Question 2 blah blah blah {} and {}",
+    "Question 3 blah blah blah {} and {}",
+    "Question 4 blah blah blah {} and {}",
+    "Question 5 blah blah blah {} and {}"
+]
+
+# Add the questions to the document
+for i, question in enumerate(questions, start=1):
+    question_text = question.format(Animals_name, 'Animals_6')
+    para = doc.add_paragraph(f"{i}. {question_text}")
+    run = para.add_run()
+    run.font.size = Pt(12)
+
+# Add the additional details
+details = ["Detail 2", "Detail 3", "Detail 4"]
+for detail in details:
+    para = doc.add_paragraph(f"• {detail}")
+    run = para.add_run()
+    run.font.size = Pt(12)
+
+# Save the document
+doc_path = f"MailMerge_Summary_{Animals_name}.docx"
+doc.save(doc_path)
+
+print(f"Document saved as {doc_path}")
