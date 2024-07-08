@@ -1,0 +1,29 @@
+import polars as pl
+
+# Sample DataFrame
+df = pl.DataFrame({
+    'animal_1': ['cat', 'dog', 'cat', 'bird', 'dog', 'cat'],
+    'animal_2': ['dog', 'cat', 'bird', 'cat', 'bird', 'dog']
+})
+
+# Step 1: Count occurrences of each animal in 'animal_2' and create a mapping
+animal_2_counts = df.groupby('animal_2').count().rename({'animal_2': 'animal_2', 'count': 'animal_1_count'})
+
+# Step 2: Join this count mapping back to the original DataFrame
+df = df.join(animal_2_counts, left_on='animal_1', right_on='animal_2', how='left')
+
+# Step 3: Create the new column 'animal_1_count_enhanced' with multiple conditions including an AND condition
+df = df.with_column(
+    pl.when((df['animal_1_count'] == 1) & (df['animal_2'] == 'cat'))
+    .then('only 1 and cat')
+    .when(df['animal_1_count'] == 1)
+    .then('only 1')
+    .when(df['animal_1_count'] == 2)
+    .then('exactly 2')
+    .when(df['animal_1_count'] > 2)
+    .then('more than 2')
+    .otherwise('unknown')
+    .alias('animal_1_count_enhanced')
+)
+
+print(df)
