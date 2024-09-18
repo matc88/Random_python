@@ -1,0 +1,103 @@
+import polars as pl
+from datetime import datetime
+
+# Sample data
+data = {
+    'Column 1': ['DA', 'EW', 'DA', 'EW', 'DA', 'EW', 'DA', 'EW', 'DA', 'EW'],
+    'Column 3': ['C3_1', 'C3_2', 'C3_3', 'C3_4', 'C3_5', 'C3_6', 'C3_7', 'C3_8', 'C3_9', 'C3_10'],
+    'Column 4': ['AAS9425', 'AAS9425', 'OTHER', 'AAS9425', 'AAS9425', 'OTHER', 'AAS9425', 'AAS9425', 'OTHER', 'AAS9425'],
+    'Column 5': ['C5_1', 'C5_2', 'C5_3', 'C5_4', 'C5_5', 'C5_6', 'C5_7', 'C5_8', 'C5_9', 'C5_10'],
+    'Column 9': ['C9_1', 'C9_1', 'C9_2', 'C9_2', 'C9_3', 'C9_3', 'C9_4', 'C9_4', 'C9_5', 'C9_5'],
+    'AMOUNT': [100, 80, 50, 60, 40, 30, 70, 50, 20, 10],
+    'date': [
+        datetime(2024, 7, 1), datetime(2024, 7, 2),
+        datetime(2024, 7, 5), datetime(2024, 7, 6),
+        datetime(2024, 7, 8), datetime(2024, 7, 8),
+        datetime(2024, 7, 10), datetime(2024, 7, 13),
+        datetime(2024, 7, 15), datetime(2024, 7, 15)
+    ]
+}
+
+# Create DataFrame
+df = pl.DataFrame(data)
+
+# Add row numbers to help with indexing
+df = df.with_row_count('row_num')
+
+# Ensure 'date' column is in datetime format
+df = df.with_column(pl.col('date').cast(pl.Date))
+
+# Add a new column 'Edits' initialized to 'N'
+df = df.with_column(pl.lit('N').alias('Edits'))
+
+# Identifying duplicates based on 'Column 9'
+# Find all values in 'Column 9' that have duplicates
+duplicate_values = (
+    df.groupby('Column 9')
+    .count()
+    .filter(pl.col('count') > 1)
+    .select('Column 9')
+    .to_series()
+)
+
+# Filter the DataFrame to only include rows where 'Column 9' is duplicated
+duplicates = df.filter(pl.col('Column 9').is_in(duplicate_values))
+
+# Iterate through the duplicates to perform the replacement
+updates = []
+
+for value in duplicate_values:
+    duplicate_rows = df.filter(pl.col('Column 9') == value)
+    
+    if len(duplicate_rows) == 2:
+        row_da = duplicate_rows.filter(pl.col('Column 1') == 'DA')
+        row_ew = duplicate_rows.filter(pl.col('Column 1') == 'EW')
+        
+        if len(row_da) == 1 and len(row_ew) == 1:
+            index_da = row_da['row_num'][0]
+            index_ew = row_ew['row_num'][0]
+            
+            # Add date condition
+            date_da = row_da['date'][0]
+            date_ew = row_ew['date'][0]
+            
+            if (row_ew['Column 4'][0] == 'AAS9425') and \
+               (row_da['AMOUNT'][0] - row_ew['AMOUNT'][0] >= 18) and \
+               (abs((date_da - date_ew).days) <= 3):
+                updates.append({
+                    'row_num': index_da,
+                    'Edits': 'Y - Remove'
+                })
+                updates.append({
+                    'row_num': index_ew,
+                    'Column 3': row_da['Column 3'][0],
+                    'Column 4': row_da['Column 4'][0],
+                    'Column 5': row_da['Column 5'][0],
+                    'Edits': 'Y - Changed'
+                })
+
+# If there are updates, apply them
+if updates:
+    updates_df = pl.DataFrame(updates)
+    
+    # Ensure 'row_num' in updates_df has the same dtype as in df
+    updates_df = updates_df.with_column(pl.col('row_num').cast(pl.UInt32))
+    
+    df = df.join(updates_df, on='row_num', how='left', suffix='_updated')
+
+    # Update the columns with the new values
+    df = df.with_columns([
+        pl.coalesce(['Column 3_updated', 'Column 3']).alias('Column 3'),
+        pl.coalesce(['Column 4_updated', 'Column 4']).alias('Column 4'),
+        pl.coalesce(['Column 5_updated', 'Column 5']).alias('Column 5'),
+        pl.coalesce(['Edits_updated', 'Edits']).alias('Edits')
+    ])
+
+    # Drop the temporary updated columns
+    df = df.drop(['Column 3_updated', 'Column 4_updated', 'Column 5_updated', 'Edits_updated'])
+else:
+    print("No updates to apply.")
+
+# Display the updated DataFrame
+print(df)
+
